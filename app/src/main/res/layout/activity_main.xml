@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="81dp"
+        android:text="@string/welcome"
+        android:textAlignment="center"
+        android:autoSizeTextType="uniform"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/guideline4"
+        app:layout_constraintVertical_bias="0.025"
+        tools:targetApi="o" />
+
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/switch_add"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_centerHorizontal="true"
+        android:layout_centerVertical="true"
+        android:checked="true"
+        android:paddingBottom="10dp"
+        android:paddingLeft="20dp"
+        android:paddingRight="20dp"
+        android:paddingTop="10dp"
+        android:text="@string/switch_sum"
+        android:textOff="@string/off"
+        android:textOn="@string/on"
+        app:layout_constraintTop_toTopOf="@+id/guideline2"
+        app:showText="true"
+        tools:layout_editor_absoluteX="0dp" />
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/switch_sub"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_centerHorizontal="true"
+        android:layout_centerVertical="true"
+        android:checked="false"
+        android:paddingBottom="10dp"
+        android:paddingLeft="20dp"
+        android:paddingRight="20dp"
+        android:paddingTop="10dp"
+        android:text="@string/switch_sum"
+        android:textOff="@string/off"
+        android:textOn="@string/on"
+        app:layout_constraintTop_toBottomOf="@+id/switch_add"
+        app:showText="true"
+        tools:layout_editor_absoluteX="0dp" />
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/switch_multi"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_centerHorizontal="true"
+        android:layout_centerVertical="true"
+        android:checked="false"
+        android:paddingBottom="10dp"
+        android:paddingLeft="20dp"
+        android:paddingRight="20dp"
+        android:paddingTop="10dp"
+        android:text="@string/switch_sum"
+        android:textOff="@string/off"
+        android:textOn="@string/on"
+        app:layout_constraintTop_toBottomOf="@+id/switch_sub"
+        app:showText="true"
+        tools:layout_editor_absoluteX="0dp" />
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/switch_divide"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_centerHorizontal="true"
+        android:layout_centerVertical="true"
+        android:checked="false"
+        android:paddingBottom="10dp"
+        android:paddingLeft="20dp"
+        android:paddingRight="20dp"
+        android:paddingTop="10dp"
+        android:text="@string/switch_sum"
+        android:textOff="@string/off"
+        android:textOn="@string/on"
+        app:layout_constraintTop_toBottomOf="@+id/switch_multi"
+        app:showText="true"
+        tools:layout_editor_absoluteX="0dp" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guideline2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_begin="202dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="30dp"
+        android:text="@string/select_tasks_type"
+        android:textAlignment="center"
+        app:layout_constraintBottom_toTopOf="@+id/switch_add"
+        tools:layout_editor_absoluteX="0dp" />
+
+    <Button
+        android:id="@+id/button"
+        android:layout_width="match_parent"
+        android:layout_height="81dp"
+        android:text="Start"
+        app:layout_constraintBottom_toBottomOf="@+id/guideline3"
+        tools:layout_editor_absoluteX="91dp" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guideline3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_begin="600dp" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guideline4"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_begin="68dp" />
+
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:textAlignment="center"
+        android:text="+"
+        android:textSize="80sp"
+        app:layout_constraintBottom_toTopOf="@id/button"
+        />
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>
