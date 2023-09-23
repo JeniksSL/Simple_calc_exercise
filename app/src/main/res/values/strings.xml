@@ -6,4 +6,5 @@
     <string name="on">ON</string>
     <string name="select_tasks_type">Select tasks type</string>
     <string name="please_chose_the_correct_option">Please chose the correct option</string>
+    <string name="result_label">Your results</string>
 </resources>

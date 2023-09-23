@@ -5,6 +5,7 @@ import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.Button
+import android.widget.ProgressBar
 import android.widget.TextView
 import kotlin.random.Random
 
@@ -14,6 +15,8 @@ class MainActivity2 : AppCompatActivity() {
         setContentView(R.layout.activity_main2)
 
         val textView:TextView=findViewById(R.id.textView2)
+        val progressBar:ProgressBar=findViewById(R.id.progressBar)
+        progressBar.max= TASK_COUNT
         val transaction: Transaction? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getSerializableExtra("trans", Transaction::class.java)
         } else {
@@ -22,16 +25,12 @@ class MainActivity2 : AppCompatActivity() {
         if(transaction==null) startActivity(Intent(applicationContext, MainActivity::class.java));
         val taskCreator= TaskCreator(transaction!!.exerciseTypes)
         val buttons= listOf<Button>(findViewById(R.id.button2), findViewById(R.id.button3), findViewById(R.id.button4))
-        val buttonListener = ButtonListener(buttons, taskCreator, textView)
-        buttons.forEach{button -> button.setOnClickListener{rewriteTransaction(transaction, buttonListener.handleClick(button.text.toString()))} }
+        val buttonListener = ButtonListener(buttons, taskCreator, textView,progressBar, transaction)
+        buttons.forEach{button -> button.setOnClickListener{checkTransaction(transaction); buttonListener.handleClick(button.text.toString())} }
         buttonListener.handleClick("-1")
-
     }
 
-    private fun rewriteTransaction(transaction: Transaction, exercise: Exercise){
-        transaction.taskNumber--
-        transaction.questions.add(exercise)
-        intent.putExtra("trans", transaction)
+    private fun checkTransaction(transaction: Transaction){
         if (transaction.taskNumber<1) {
             val newIntent=Intent(applicationContext, MainActivity::class.java)
             newIntent.putExtra("trans", transaction)
@@ -40,19 +39,30 @@ class MainActivity2 : AppCompatActivity() {
     }
 }
 
-class ButtonListener(val buttons:List<Button>, val creator: TaskCreator, val textView: TextView){
+class ButtonListener(
+    val buttons:List<Button>,
+    val creator: TaskCreator,
+    val textView: TextView,
+    val progressBar:ProgressBar,
+    var transaction: Transaction){
     private var previousEx: Exercise?=null
-    fun handleClick(text :String): Exercise {
+    fun handleClick(text :String) {
         val answer:Int = Integer.parseInt(text)
         if (previousEx!=null) {
             previousEx!!.answerIndex=previousEx!!.answers.indexOf(answer)
+            transaction.taskNumber--
+            transaction.questions.add(previousEx!!)
         }
-        val task = creator.getRandomTask()
-        textView.text=task.question
-        task.answers.zip(buttons).forEach { pair-> pair.second.text=pair.first.toString()}
-        val intermedia = previousEx
-        previousEx=task
-        return intermedia ?: task
+        val progress =  TASK_COUNT-transaction.taskNumber
+        if (progress<= TASK_COUNT)
+        {
+            progressBar.setProgress(progress, true)
+            val task = creator.getRandomTask()
+            textView.text=task.question
+            task.answers.zip(buttons).forEach { pair-> pair.second.text=pair.first.toString()}
+            previousEx=task
+        }
+
     }
 
 
