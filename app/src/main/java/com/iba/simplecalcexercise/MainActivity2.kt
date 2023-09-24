@@ -25,26 +25,27 @@ class MainActivity2 : AppCompatActivity() {
         if(transaction==null) startActivity(Intent(applicationContext, MainActivity::class.java));
         val taskCreator= TaskCreator(transaction!!.exerciseTypes)
         val buttons= listOf<Button>(findViewById(R.id.button2), findViewById(R.id.button3), findViewById(R.id.button4))
-        val buttonListener = ButtonListener(buttons, taskCreator, textView,progressBar, transaction)
-        buttons.forEach{button -> button.setOnClickListener{checkTransaction(transaction); buttonListener.handleClick(button.text.toString())} }
+        val buttonListener = ButtonListener(buttons, taskCreator, textView,progressBar, transaction, this::checkTransaction)
+        buttons.forEach{button -> button.setOnClickListener{buttonListener.handleClick(button.text.toString())} }
         buttonListener.handleClick("-1")
     }
 
     private fun checkTransaction(transaction: Transaction){
-        if (transaction.taskNumber<1) {
             val newIntent=Intent(applicationContext, MainActivity::class.java)
             newIntent.putExtra("trans", transaction)
             startActivity(newIntent)
-        }
+
     }
 }
 
 class ButtonListener(
-    val buttons:List<Button>,
+    val buttons: List<Button>,
     val creator: TaskCreator,
     val textView: TextView,
-    val progressBar:ProgressBar,
-    var transaction: Transaction){
+    val progressBar: ProgressBar,
+    var transaction: Transaction,
+    val kFunction1: (Transaction) -> Unit
+){
     private var previousEx: Exercise?=null
     fun handleClick(text :String) {
         val answer:Int = Integer.parseInt(text)
@@ -54,15 +55,18 @@ class ButtonListener(
             transaction.questions.add(previousEx!!)
         }
         val progress =  TASK_COUNT-transaction.taskNumber
-        if (progress<= TASK_COUNT)
+        progressBar.setProgress(progress, true)
+
+        if (progress< TASK_COUNT)
         {
-            progressBar.setProgress(progress, true)
             val task = creator.getRandomTask()
             textView.text=task.question
             task.answers.zip(buttons).forEach { pair-> pair.second.text=pair.first.toString()}
             previousEx=task
         }
-
+        else {
+            kFunction1.invoke(transaction)
+        }
     }
 
 

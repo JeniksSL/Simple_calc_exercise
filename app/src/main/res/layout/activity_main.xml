@@ -4,6 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:layout_margin="10dp"
     tools:context=".MainActivity">
 
     <TextView
@@ -17,7 +18,8 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="@+id/guideline4"
         app:layout_constraintVertical_bias="0.025"
-        tools:targetApi="o" />
+        tools:targetApi="o"
+        android:layout_margin="5dp"/>
 
     <androidx.appcompat.widget.SwitchCompat
         android:id="@+id/switch_add"
@@ -34,7 +36,7 @@
         android:textOn="@string/on"
         app:layout_constraintTop_toTopOf="@+id/guideline2"
         app:showText="true"
-        tools:layout_editor_absoluteX="0dp" />
+        android:layout_margin="5dp"/>
     <androidx.appcompat.widget.SwitchCompat
         android:id="@+id/switch_sub"
         android:layout_width="match_parent"
@@ -50,7 +52,7 @@
         android:textOn="@string/on"
         app:layout_constraintTop_toBottomOf="@+id/switch_add"
         app:showText="true"
-        tools:layout_editor_absoluteX="0dp" />
+        android:layout_margin="5dp" />
     <androidx.appcompat.widget.SwitchCompat
         android:id="@+id/switch_multi"
         android:layout_width="match_parent"
@@ -66,7 +68,7 @@
         android:textOn="@string/on"
         app:layout_constraintTop_toBottomOf="@+id/switch_sub"
         app:showText="true"
-        tools:layout_editor_absoluteX="0dp" />
+        android:layout_margin="5dp" />
     <androidx.appcompat.widget.SwitchCompat
         android:id="@+id/switch_divide"
         android:layout_width="match_parent"
@@ -82,7 +84,7 @@
         android:textOn="@string/on"
         app:layout_constraintTop_toBottomOf="@+id/switch_multi"
         app:showText="true"
-        tools:layout_editor_absoluteX="0dp" />
+        android:layout_margin="5dp" />
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline2"
@@ -98,7 +100,8 @@
         android:text="@string/select_tasks_type"
         android:textAlignment="center"
         app:layout_constraintBottom_toTopOf="@+id/switch_add"
-        tools:layout_editor_absoluteX="0dp" />
+        tools:layout_editor_absoluteX="0dp"
+        android:layout_margin="5dp"/>
 
     <Button
         android:id="@+id/button"
@@ -106,7 +109,7 @@
         android:layout_height="81dp"
         android:text="Start"
         app:layout_constraintBottom_toBottomOf="@+id/guideline3"
-        tools:layout_editor_absoluteX="91dp" />
+        android:layout_margin="5dp" />
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline3"
@@ -129,6 +132,7 @@
         android:textAlignment="center"
         android:textSize="80sp"
         app:layout_constraintBottom_toTopOf="@id/button"
+        android:layout_margin="5dp"
         />
 
     <TextView
@@ -138,6 +142,7 @@
         app:layout_constraintTop_toTopOf="@+id/switch_add"
         android:maxLines="10"
         android:singleLine="false"
+        android:layout_margin="5dp"
          />
 
 
