@@ -36,7 +36,7 @@ class MainActivity : AppCompatActivity() {
         startButton = findViewById(R.id.button)
     }
 
-    override fun onStart() {
+    override fun onStart() { //overall suggestion: Replace it with Command pattern to simplify logic https://refactoring.guru/design-patterns/command
         super.onStart()
         applySettings()
         val checker = SwitchChecker(pairs, selectedTaskView, getString(R.string.chose_type))
@@ -52,7 +52,7 @@ class MainActivity : AppCompatActivity() {
             if (startButton.text==getString(R.string.skip)) hideResults()
             else {
                 val list = checker.getChecked()
-                if(list.isNotEmpty()){
+                if(list.isNotEmpty()){//TODO usually startActivity and any navigation action is a separate clearly named function
                     val newIntent = Intent(applicationContext, MainActivity2::class.java)
                     newIntent.putExtra(GlobalConstants.TRANSACTION_IN_INTENT, Transaction(list, mutableListOf()))
                     startActivity(newIntent)
@@ -64,7 +64,7 @@ class MainActivity : AppCompatActivity() {
     private fun applySettings(){
         val sharedPreferences = applicationContext.getSharedPreferences(GlobalConstants.SETTINGS_IN_PREFERENCE, Context.MODE_PRIVATE)
         val settings:AppSettings= Gson().fromJson(sharedPreferences.getString(GlobalConstants.MAIN_ACTIVITY_SETTINGS, AppSettings.defaultSettingsJson()),AppSettings::class.java )
-        settings.checkedSCompact.forEach{ entry-> pairs[entry.key]?.isChecked=entry.value }
+        settings.checkedSCompact.forEach{ entry-> pairs[entry.key]?.isChecked=entry.value } //TODO its Compat, not Compact, derives from Compatibility, long story)
     }
 
     private fun saveSettings() {
@@ -79,7 +79,7 @@ class MainActivity : AppCompatActivity() {
             .stream()
             .map { ex->ex.getAnswerDescription() }
             .toList()
-            .joinToString("")
+            .joinToString("") //Java syntax
         pairs.values.forEach{switchCompat -> switchCompat.visibility= View.INVISIBLE }
         startButton.text=getString(R.string.skip)
         selectedTaskView.visibility= View.INVISIBLE
@@ -94,7 +94,7 @@ class MainActivity : AppCompatActivity() {
 
 
 }
-fun extractTransaction(intent: Intent):Transaction? {
+fun extractTransaction(intent: Intent):Transaction? { //TODO use Parcelable here
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         intent.getSerializableExtra(GlobalConstants.TRANSACTION_IN_INTENT, Transaction::class.java)
     } else {
@@ -106,8 +106,9 @@ fun extractTransaction(intent: Intent):Transaction? {
 data class AppSettings (val checkedSCompact: Map<ExerciseType, Boolean>
 ) {
     companion object{
-        fun defaultSettingsJson(): String = Gson()
-            .toJson(AppSettings(ExerciseType.values().associateWith { _ -> false }))
+        fun defaultSettingsJson(): String = Gson() //Gson is too heavy to use it here, separated settings preferred
+            .toJson(AppSettings(ExerciseType.values().associateWith { false }))
+//            .toJson(AppSettings(ExerciseType.values().associateWith { _ -> false })) Java syntax, that is enough
     }
 
 
@@ -145,7 +146,8 @@ class SwitchChecker(private val pairs :Map<ExerciseType, SwitchCompat>,
             textView.text=emptyText
         } else {
             textView.textSize = 80F
-            textView.text = types.stream().map { type->type.s }.toList().joinToString("")
+//            textView.text = types.stream().map { type->type.s }.toList().joinToString("")
+            textView.text = types.map { it.s }.joinToString (separator = " ") //Kotlin version using collections functions
         }
     }
 

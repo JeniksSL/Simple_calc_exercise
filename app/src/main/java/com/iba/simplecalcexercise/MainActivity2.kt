@@ -14,7 +14,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 
-class MainActivity2 : AppCompatActivity() {
+//TODO formatting
+class MainActivity2 : AppCompatActivity() { //TODO Name
 
     private lateinit var buttons: List<Button>
     private lateinit var progressBar:ProgressBar
@@ -32,17 +33,35 @@ class MainActivity2 : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         val transaction: Transaction? = extractTransaction(intent)
-        if(transaction==null) startActivity(Intent(applicationContext, MainActivity::class.java));
-        val taskCreator= TaskCreator(transaction!!.exerciseTypes)
-        val buttonListener = ButtonListener(
-            buttons,
-            taskCreator,
-            textView,
-            progressBar,
-            transaction,
-            this::startMainActivity)
-        buttons.forEach{button -> button.setOnClickListener{buttonListener.handleClick(button.text.toString())} }
-        buttonListener.updateExercise()
+        transaction
+            ?.let {
+                val buttonListener = ButtonListener(
+                    buttons,
+                    TaskCreator(transaction.exerciseTypes),
+                    textView,
+                    progressBar,
+                    transaction,
+                    this::startMainActivity)
+                buttons.forEach{button -> button.setOnClickListener{buttonListener.handleClick(button.text.toString())} }
+                buttonListener.updateExercise()
+            }
+            ?:{
+                startActivity(Intent(applicationContext, MainActivity::class.java))
+            } // more Kotlin way
+
+//        val transaction: Transaction? = extractTransaction(intent)
+//        if(transaction==null) startActivity(Intent(applicationContext, MainActivity::class.java));
+//        val taskCreator= TaskCreator(transaction!!.exerciseTypes)
+//
+//        val buttonListener = ButtonListener(
+//            buttons,
+//            taskCreator,
+//            textView,
+//            progressBar,
+//            transaction,
+//            this::startMainActivity)
+//        buttons.forEach{button -> button.setOnClickListener{buttonListener.handleClick(button.text.toString())} }
+//        buttonListener.updateExercise()
     }
 
     private fun startMainActivity(transaction: Transaction){
