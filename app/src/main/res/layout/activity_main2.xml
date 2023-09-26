@@ -52,6 +52,8 @@
         app:layout_constraintTop_toBottomOf="@+id/textView2"
         app:layout_constraintLeft_toLeftOf="parent"
         android:layout_margin="5dp"
+        android:textSize="30sp"
+        android:textColor="@color/black"
    />
 
     <Button
@@ -61,6 +63,8 @@
         app:layout_constraintTop_toBottomOf="@+id/textView2"
         app:layout_constraintLeft_toLeftOf="@+id/guideline"
         android:layout_margin="5dp"
+        android:textSize="30sp"
+        android:textColor="@color/black"
         />
 
     <Button
@@ -70,6 +74,8 @@
         app:layout_constraintTop_toBottomOf="@+id/textView2"
         app:layout_constraintLeft_toLeftOf="@+id/guideline5"
         android:layout_margin="5dp"
+        android:textSize="30sp"
+        android:textColor="@color/black"
         />
 
     <ProgressBar

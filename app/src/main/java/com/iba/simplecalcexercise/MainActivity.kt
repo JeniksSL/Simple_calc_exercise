@@ -1,5 +1,6 @@
 package com.iba.simplecalcexercise
 
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
@@ -8,104 +9,155 @@ import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.widget.SwitchCompat
+import com.google.gson.Gson
 import java.io.Serializable
 import kotlin.streams.toList
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var pairs :Map<ExerciseType, SwitchCompat>
-
+    private lateinit var selectedTaskView: TextView
+    private lateinit var taskTypeView: TextView
+    private lateinit var resultView: TextView
+    private lateinit var startButton:Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        pairs= mapOf(
+        pairs = mapOf(
             Pair(ExerciseType.ADDITION, findViewById<SwitchCompat>(R.id.switch_add)),
             Pair(ExerciseType.SUBTRACTION, findViewById<SwitchCompat>(R.id.switch_sub)),
             Pair(ExerciseType.MULTIPLICATION, findViewById<SwitchCompat>(R.id.switch_multi)),
             Pair(ExerciseType.DIVISION, findViewById<SwitchCompat>(R.id.switch_divide))
         )
-        val textView: TextView = findViewById(R.id.textView)
-        val selectView: TextView = findViewById(R.id.task_type)
-        val resultView: TextView = findViewById(R.id.textView4)
-        val checker = SwitchChecker(pairs, textView)
-        checker.check()
-        ExerciseType.values().forEach { exerciseType ->
-            val switchChecker = pairs[exerciseType]
-            switchChecker!!.setOnCheckedChangeListener{ _, _ -> checker.check() }
-            switchChecker.text=exerciseType.name
-        }
-        val startButton:Button = findViewById(R.id.button)
-        val trans: Transaction? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent.getSerializableExtra("trans", Transaction::class.java)
-        } else {
-            intent.getSerializableExtra("trans") as Transaction?
-        }
-        if (trans!=null) {
-            selectView.text = getString(R.string.result_label)
-            val results = trans.questions
-                .stream()
-                .map { ex->ex.question
-                    .plus(" "+ex.answers[ex.answerIndex].toString()+" ")
-                    .plus((ex.answerIndex==ex.correctIndex).toString())
-                    .plus(if (ex.answerIndex==ex.correctIndex) " " else " correct is "+ex.answers[ex.correctIndex].toString())
-                    .plus("\n") }
-                .toList()
-            pairs.values.forEach{switchCompat -> switchCompat.visibility= View.INVISIBLE }
-            resultView.text=results.joinToString("")
-            startButton.text="Skip"
-            textView.visibility= View.INVISIBLE
-        }
-        startButton.setOnClickListener {
-            if ( startButton.text=="Skip") {
-                startButton.text="Start"
-                resultView.visibility=View.INVISIBLE
-                pairs.values.forEach{switchCompat -> switchCompat.visibility= View.VISIBLE }
-                textView.visibility= View.VISIBLE
-                selectView.text=getString(R.string.select_tasks_type)
+        selectedTaskView = findViewById(R.id.selectedTaskView)
+        taskTypeView = findViewById(R.id.task_type)
+        resultView = findViewById(R.id.resultView)
+        startButton = findViewById(R.id.button)
+    }
 
-            } else {
-                val list = checker.check()
+    override fun onStart() {
+        super.onStart()
+        applySettings()
+        val checker = SwitchChecker(pairs, selectedTaskView, getString(R.string.chose_type))
+        checker.setTypes()
+
+        pairs.forEach { entry ->
+            entry.value.setOnCheckedChangeListener{ _, _ ->saveSettings(); checker.setTypes() };
+            entry.value.text=entry.key.name
+        }
+        val trans= extractTransaction(intent)
+        if (trans!=null&&trans.questions.isNotEmpty()) showResults(trans.questions)
+        startButton.setOnClickListener {
+            if (startButton.text==getString(R.string.skip)) hideResults()
+            else {
+                val list = checker.getChecked()
                 if(list.isNotEmpty()){
                     val newIntent = Intent(applicationContext, MainActivity2::class.java)
-                    val transaction = Transaction(list, mutableListOf<Exercise>())
-                    newIntent.putExtra("trans", transaction)
+                    newIntent.putExtra(GlobalConstants.TRANSACTION_IN_INTENT, Transaction(list, mutableListOf()))
                     startActivity(newIntent)
                 }
             }
-
         }
+
     }
+    private fun applySettings(){
+        val sharedPreferences = applicationContext.getSharedPreferences(GlobalConstants.SETTINGS_IN_PREFERENCE, Context.MODE_PRIVATE)
+        val settings:AppSettings= Gson().fromJson(sharedPreferences.getString(GlobalConstants.MAIN_ACTIVITY_SETTINGS, AppSettings.defaultSettingsJson()),AppSettings::class.java )
+        settings.checkedSCompact.forEach{ entry-> pairs[entry.key]?.isChecked=entry.value }
+    }
+
+    private fun saveSettings() {
+        val sharedPreferences = applicationContext.getSharedPreferences(GlobalConstants.SETTINGS_IN_PREFERENCE, Context.MODE_PRIVATE)
+        val settings = Gson().toJson(AppSettings(pairs.map{ entry->Pair(entry.key, entry.value.isChecked)}.toMap()))
+        sharedPreferences.edit().putString(GlobalConstants.MAIN_ACTIVITY_SETTINGS, settings).apply()
+    }
+
+    private fun showResults(questions: List<Exercise>){
+        taskTypeView.text = getString(R.string.result_label)
+        resultView.text = questions
+            .stream()
+            .map { ex->ex.getAnswerDescription() }
+            .toList()
+            .joinToString("")
+        pairs.values.forEach{switchCompat -> switchCompat.visibility= View.INVISIBLE }
+        startButton.text=getString(R.string.skip)
+        selectedTaskView.visibility= View.INVISIBLE
+    }
+    private fun hideResults(){
+        startButton.text=getString(R.string.start)
+        resultView.visibility=View.INVISIBLE
+        pairs.values.forEach{switchCompat -> switchCompat.visibility= View.VISIBLE }
+        selectedTaskView.visibility= View.VISIBLE
+        taskTypeView.text=getString(R.string.select_tasks_type)
+    }
+
+
+}
+fun extractTransaction(intent: Intent):Transaction? {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        intent.getSerializableExtra(GlobalConstants.TRANSACTION_IN_INTENT, Transaction::class.java)
+    } else {
+        intent.getSerializableExtra(GlobalConstants.TRANSACTION_IN_INTENT) as Transaction?
+    }
+}
+
+
+data class AppSettings (val checkedSCompact: Map<ExerciseType, Boolean>
+) {
+    companion object{
+        fun defaultSettingsJson(): String = Gson()
+            .toJson(AppSettings(ExerciseType.values().associateWith { _ -> false }))
+    }
+
+
 }
 
 
 enum class ExerciseType(val s: String) {
     ADDITION(" + "), SUBTRACTION(" - ") ,DIVISION(" % "), MULTIPLICATION(" * ");
 }
+interface GlobalConstants{
+    companion object{
+        const val SETTINGS_IN_PREFERENCE:String="SETTINGS_IN_PREFERENCE"
+        const val MAIN_ACTIVITY_SETTINGS:String="MAIN_ACTIVITY_SETTINGS"
+        const val TRANSACTION_IN_INTENT:String="TRANSACTION_IN_INTENT"
+    }
+}
+
 const val TASK_COUNT = 10
 data class Transaction (
-    val exerciseTypes: List<ExerciseType>,
+    val exerciseTypes: HashSet<ExerciseType>,
     var questions: MutableList<Exercise>,
     var taskNumber: Int = TASK_COUNT
 ): Serializable
 
 class SwitchChecker(private val pairs :Map<ExerciseType, SwitchCompat>,
-                    private val textView: TextView){
-
-
-    fun check(): ArrayList<ExerciseType> {
-        val list =ArrayList<ExerciseType>()
-        var text = ""
-        pairs.forEach{ (type, compact) ->if (compact.isChecked) {text=text.plus(type.s); list.add(type)}}
-        if (text == "") {
+                    private val textView: TextView,
+                    private val emptyText:String){
+    fun getChecked(): HashSet<ExerciseType> {
+        return HashSet(pairs.filter{ entry ->entry.value.isChecked}.keys)
+    }
+    fun setTypes(){
+        val types = getChecked()
+        if (types.isEmpty()) {
             textView.textSize = 40F
-            textView.text="Please choose the type of exercises"
+            textView.text=emptyText
         } else {
             textView.textSize = 80F
-            textView.text = text
+            textView.text = types.stream().map { type->type.s }.toList().joinToString("")
         }
-        return list
     }
+
+
 }
 
-data class Exercise(val question:String, val answers: List<Int>, val correctIndex: Int, var answerIndex:Int=-1):Serializable
+data class Exercise(val question:String, val answers: List<Int>, val correctIndex: Int, var answerIndex:Int=-1):Serializable{
+    fun getAnswerDescription():String{
+       return question
+            .plus(" "+answers[answerIndex].toString()+" ")
+            .plus((answerIndex==correctIndex).toString())
+            .plus(if (answerIndex==correctIndex) " " else " correct is ".plus(answers[correctIndex].toString()))
+            .plus("\n")
+    }
+}
