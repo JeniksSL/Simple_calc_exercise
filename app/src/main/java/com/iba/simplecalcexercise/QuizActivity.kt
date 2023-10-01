@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 //TODO formatting
-class MainActivity2 : AppCompatActivity() { //TODO Name
+class QuizActivity : AppCompatActivity() { //TODO Name
 
     private lateinit var buttons: List<Button>
     private lateinit var progressBar:ProgressBar
@@ -99,7 +99,7 @@ class ButtonListener(
             buttons.forEach{button: Button -> button.isEnabled = false }
         }
         GlobalScope.launch(Dispatchers.Main) {
-            delay(500L)
+            delay(300L)
            updateExercise()
         }
         val progress =  TASK_COUNT-transaction.taskNumber

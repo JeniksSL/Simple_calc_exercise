@@ -9,9 +9,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.widget.SwitchCompat
-import com.google.gson.Gson
 import java.io.Serializable
-import kotlin.streams.toList
 
 class MainActivity : AppCompatActivity() {
 
@@ -53,9 +51,7 @@ class MainActivity : AppCompatActivity() {
             else {
                 val list = checker.getChecked()
                 if(list.isNotEmpty()){//TODO usually startActivity and any navigation action is a separate clearly named function
-                    val newIntent = Intent(applicationContext, MainActivity2::class.java)
-                    newIntent.putExtra(GlobalConstants.TRANSACTION_IN_INTENT, Transaction(list, mutableListOf()))
-                    startActivity(newIntent)
+                  startQuizActivity(list)
                 }
             }
         }
@@ -63,23 +59,19 @@ class MainActivity : AppCompatActivity() {
     }
     private fun applySettings(){
         val sharedPreferences = applicationContext.getSharedPreferences(GlobalConstants.SETTINGS_IN_PREFERENCE, Context.MODE_PRIVATE)
-        val settings:AppSettings= Gson().fromJson(sharedPreferences.getString(GlobalConstants.MAIN_ACTIVITY_SETTINGS, AppSettings.defaultSettingsJson()),AppSettings::class.java )
-        settings.checkedSCompact.forEach{ entry-> pairs[entry.key]?.isChecked=entry.value } //TODO its Compat, not Compact, derives from Compatibility, long story)
+        pairs.forEach {entry ->  entry.value.isChecked=sharedPreferences.getString(entry.key.name, false.toString()).toBoolean()}
+       //TODO its Compat, not Compact, derives from Compatibility, long story)
     }
 
     private fun saveSettings() {
         val sharedPreferences = applicationContext.getSharedPreferences(GlobalConstants.SETTINGS_IN_PREFERENCE, Context.MODE_PRIVATE)
-        val settings = Gson().toJson(AppSettings(pairs.map{ entry->Pair(entry.key, entry.value.isChecked)}.toMap()))
-        sharedPreferences.edit().putString(GlobalConstants.MAIN_ACTIVITY_SETTINGS, settings).apply()
+        pairs.forEach { entry ->  sharedPreferences.edit().putString(entry.key.name, entry.value.isChecked.toString()).apply()}
     }
 
     private fun showResults(questions: List<Exercise>){
         taskTypeView.text = getString(R.string.result_label)
-        resultView.text = questions
-            .stream()
-            .map { ex->ex.getAnswerDescription() }
-            .toList()
-            .joinToString("") //Java syntax
+        resultView.text = questions.joinToString(separator = "") { it.getAnswerDescription() }
+           //Java syntax
         pairs.values.forEach{switchCompat -> switchCompat.visibility= View.INVISIBLE }
         startButton.text=getString(R.string.skip)
         selectedTaskView.visibility= View.INVISIBLE
@@ -90,6 +82,11 @@ class MainActivity : AppCompatActivity() {
         pairs.values.forEach{switchCompat -> switchCompat.visibility= View.VISIBLE }
         selectedTaskView.visibility= View.VISIBLE
         taskTypeView.text=getString(R.string.select_tasks_type)
+    }
+    private fun startQuizActivity(exerciseTypes: HashSet<ExerciseType>){
+        val newIntent = Intent(applicationContext, QuizActivity::class.java)
+        newIntent.putExtra(GlobalConstants.TRANSACTION_IN_INTENT, Transaction(exerciseTypes, mutableListOf()))
+        startActivity(newIntent)
     }
 
 
@@ -103,25 +100,12 @@ fun extractTransaction(intent: Intent):Transaction? { //TODO use Parcelable here
 }
 
 
-data class AppSettings (val checkedSCompact: Map<ExerciseType, Boolean>
-) {
-    companion object{
-        fun defaultSettingsJson(): String = Gson() //Gson is too heavy to use it here, separated settings preferred
-            .toJson(AppSettings(ExerciseType.values().associateWith { false }))
-//            .toJson(AppSettings(ExerciseType.values().associateWith { _ -> false })) Java syntax, that is enough
-    }
-
-
-}
-
-
 enum class ExerciseType(val s: String) {
     ADDITION(" + "), SUBTRACTION(" - ") ,DIVISION(" % "), MULTIPLICATION(" * ");
 }
 interface GlobalConstants{
     companion object{
         const val SETTINGS_IN_PREFERENCE:String="SETTINGS_IN_PREFERENCE"
-        const val MAIN_ACTIVITY_SETTINGS:String="MAIN_ACTIVITY_SETTINGS"
         const val TRANSACTION_IN_INTENT:String="TRANSACTION_IN_INTENT"
     }
 }
@@ -145,9 +129,9 @@ class SwitchChecker(private val pairs :Map<ExerciseType, SwitchCompat>,
             textView.textSize = 40F
             textView.text=emptyText
         } else {
-            textView.textSize = 80F
-//            textView.text = types.stream().map { type->type.s }.toList().joinToString("")
-            textView.text = types.map { it.s }.joinToString (separator = " ") //Kotlin version using collections functions
+            textView.textSize = 80F//
+            textView.text =
+                types.joinToString(separator = "") { it.s } //Kotlin version using collections functions
         }
     }
 
