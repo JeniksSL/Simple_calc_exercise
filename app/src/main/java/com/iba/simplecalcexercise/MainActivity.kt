@@ -91,6 +91,19 @@ class MainActivity : AppCompatActivity() {
 
 
 }
+
+abstract class Command(private val receiver: Receiver) {
+    abstract fun execute()
+}
+abstract class Receiver(private val textView: TextView){
+
+}
+
+class SwitchCompatContainer(){
+
+}
+
+
 fun extractTransaction(intent: Intent):Transaction? { //TODO use Parcelable here
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         intent.getSerializableExtra(GlobalConstants.TRANSACTION_IN_INTENT, Transaction::class.java)
