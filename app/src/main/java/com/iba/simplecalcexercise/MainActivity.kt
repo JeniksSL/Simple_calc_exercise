@@ -1,149 +1,196 @@
 package com.iba.simplecalcexercise
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
+import android.graphics.Color
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.view.View
+import android.os.Parcelable
 import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContract
 import androidx.appcompat.widget.SwitchCompat
+import kotlinx.parcelize.Parcelize
+import org.apache.commons.lang3.StringUtils
 import java.io.Serializable
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var pairs :Map<ExerciseType, SwitchCompat>
-    private lateinit var selectedTaskView: TextView
-    private lateinit var taskTypeView: TextView
-    private lateinit var resultView: TextView
-    private lateinit var startButton:Button
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        pairs = mapOf(
-            Pair(ExerciseType.ADDITION, findViewById<SwitchCompat>(R.id.switch_add)),
-            Pair(ExerciseType.SUBTRACTION, findViewById<SwitchCompat>(R.id.switch_sub)),
-            Pair(ExerciseType.MULTIPLICATION, findViewById<SwitchCompat>(R.id.switch_multi)),
-            Pair(ExerciseType.DIVISION, findViewById<SwitchCompat>(R.id.switch_divide))
+
+        val sharedPreferences = applicationContext.getSharedPreferences(
+            GlobalConstants.SETTINGS_IN_PREFERENCE,
+            Context.MODE_PRIVATE
         )
-        selectedTaskView = findViewById(R.id.selectedTaskView)
-        taskTypeView = findViewById(R.id.task_type)
-        resultView = findViewById(R.id.resultView)
-        startButton = findViewById(R.id.button)
-    }
 
-    override fun onStart() { //overall suggestion: Replace it with Command pattern to simplify logic https://refactoring.guru/design-patterns/command
-        super.onStart()
-        applySettings()
-        val checker = SwitchChecker(pairs, selectedTaskView, getString(R.string.chose_type))
-        checker.setTypes()
+        //Create receivers
+        val transactionReceiver = TransactionReceiver(Transaction(mutableSetOf(), mutableListOf()))
+        val llTaskTypeReceiver = ViewReceiver(findViewById<LinearLayout>(R.id.ll_task_type))
+        val llResultReceiver = ViewReceiver(findViewById<LinearLayout>(R.id.ll_result))
+            .apply { this.hide() }
+        val btnStartReceiver = TextViewReceiver(findViewById<Button>(R.id.btn_start))
+        val tvTaskTypeReceiver = TextViewReceiver(findViewById<TextView>(R.id.tv_task_type))
+        val llCompatReceiver = ViewReceiver(findViewById<LinearLayout>(R.id.ll_compat))
+        val tvResultReceiver = TextViewReceiver(findViewById(R.id.tv_result))
 
-        pairs.forEach { entry ->
-            entry.value.setOnCheckedChangeListener{ _, _ ->saveSettings(); checker.setTypes() };
-            entry.value.text=entry.key.name
-        }
-        val trans= extractTransaction(intent)
-        if (trans!=null&&trans.questions.isNotEmpty()) showResults(trans.questions)
-        startButton.setOnClickListener {
-            if (startButton.text==getString(R.string.skip)) hideResults()
-            else {
-                val list = checker.getChecked()
-                if(list.isNotEmpty()){//TODO usually startActivity and any navigation action is a separate clearly named function
-                  startQuizActivity(list)
-                }
+        val addTypeSwitchViewReceiver = TypeSwitchViewReceiver(
+            ExerciseType.ADDITION,
+            findViewById(R.id.switch_add),
+            findViewById<SwitchCompat>(R.id.tv_add_indicate)
+        ).apply { this.load(sharedPreferences) }
+
+        val subTypeSwitchViewReceiver = TypeSwitchViewReceiver(
+            ExerciseType.SUBTRACTION,
+            findViewById(R.id.switch_sub),
+            findViewById<SwitchCompat>(R.id.tv_sub_indicate)
+        ).apply { this.load(sharedPreferences) }
+        val multiTypeSwitchViewReceiver = TypeSwitchViewReceiver(
+            ExerciseType.MULTIPLICATION,
+            findViewById(R.id.switch_multi),
+            findViewById(R.id.tv_multi_indicate)
+        ).apply { this.load(sharedPreferences) }
+        val divTypeSwitchViewReceiver = TypeSwitchViewReceiver(
+            ExerciseType.DIVISION,
+            findViewById(R.id.switch_divide),
+            findViewById(R.id.tv_divide_indicate)
+        ).apply { this.load(sharedPreferences) }
+
+        //Invokers and commands
+        //Activity Launcher Invoker/Receiver
+        val clipboard = Clipboard()
+        val activityLauncher =
+            registerForActivityResult(QuizActivityContract(), ActivityResultInvoker(
+                listOf(
+                    VisibilityCommand(llTaskTypeReceiver, false),
+                    DisableCommand(btnStartReceiver),
+                    VisibilityCommand(llResultReceiver),
+                    WriteCommand(tvTaskTypeReceiver, getString(R.string.result_label)),
+                    VisibilityCommand(llCompatReceiver, false),
+                    PasteCommand(tvResultReceiver, clipboard)
+                )
+            ).apply { this.commandsBefore.add(CopyCommand(this, clipboard)) })
+
+        val activityResultReceiver = ActivityResultReceiver(
+            activityLauncher,
+            transactionReceiver.transaction
+        )
+
+        //SwitchCompat Invoker
+        listOf(
+            addTypeSwitchViewReceiver,
+            subTypeSwitchViewReceiver,
+            multiTypeSwitchViewReceiver,
+            divTypeSwitchViewReceiver
+        )
+            .forEach {
+                if (it.switchCompat.isChecked) transactionReceiver.apply { this.write( it.exerciseType.name) }
+                SwitchCompatInvoker(
+                    it.switchCompat,
+                    listOf(
+                        VisibilityCommand(TextViewReceiver(it.textView)),
+                        WriteCommand(transactionReceiver, it.exerciseType.name)
+                    ),
+                    listOf(
+                        VisibilityCommand(TextViewReceiver(it.textView), false),
+                        CutCommand(transactionReceiver, it.exerciseType.name)
+                    ),
+                    listOf(
+                        SaveCommand(it, sharedPreferences)
+                    )
+                )
             }
-        }
-
-    }
-    private fun applySettings(){
-        val sharedPreferences = applicationContext.getSharedPreferences(GlobalConstants.SETTINGS_IN_PREFERENCE, Context.MODE_PRIVATE)
-        pairs.forEach {entry ->  entry.value.isChecked=sharedPreferences.getString(entry.key.name, false.toString()).toBoolean()}
-       //TODO its Compat, not Compact, derives from Compatibility, long story)
-    }
-
-    private fun saveSettings() {
-        val sharedPreferences = applicationContext.getSharedPreferences(GlobalConstants.SETTINGS_IN_PREFERENCE, Context.MODE_PRIVATE)
-        pairs.forEach { entry ->  sharedPreferences.edit().putString(entry.key.name, entry.value.isChecked.toString()).apply()}
-    }
-
-    private fun showResults(questions: List<Exercise>){
-        taskTypeView.text = getString(R.string.result_label)
-        resultView.text = questions.joinToString(separator = "") { it.getAnswerDescription() }
-           //Java syntax
-        pairs.values.forEach{switchCompat -> switchCompat.visibility= View.INVISIBLE }
-        startButton.text=getString(R.string.skip)
-        selectedTaskView.visibility= View.INVISIBLE
-    }
-    private fun hideResults(){
-        startButton.text=getString(R.string.start)
-        resultView.visibility=View.INVISIBLE
-        pairs.values.forEach{switchCompat -> switchCompat.visibility= View.VISIBLE }
-        selectedTaskView.visibility= View.VISIBLE
-        taskTypeView.text=getString(R.string.select_tasks_type)
-    }
-    private fun startQuizActivity(exerciseTypes: HashSet<ExerciseType>){
-        val newIntent = Intent(applicationContext, QuizActivity::class.java)
-        newIntent.putExtra(GlobalConstants.TRANSACTION_IN_INTENT, Transaction(exerciseTypes, mutableListOf()))
-        startActivity(newIntent)
-    }
 
 
+        //Skip button
+        ButtonInvoker(
+            findViewById(R.id.btn_skip),
+            listOf(),
+            listOf(
+                EnableCommand(btnStartReceiver),
+                VisibilityCommand(llTaskTypeReceiver),
+                VisibilityCommand(llResultReceiver, false),
+                VisibilityCommand(llCompatReceiver),
+                WriteCommand(tvTaskTypeReceiver, getString(R.string.select_tasks_type))
+            )
+        )
+        //Start button
+        val transClipboard = Clipboard()
+        ButtonInvoker(
+            findViewById(R.id.btn_start),
+            listOf(
+                CopyCommand(transactionReceiver, transClipboard)
+            ),
+            listOf(
+                BlinkCommand(tvTaskTypeReceiver, transClipboard, Color.WHITE, Color.GREEN, 1000),
+                LaunchCommand(activityResultReceiver)
+            )
+        )
+    }
 }
-fun extractTransaction(intent: Intent):Transaction? { //TODO use Parcelable here
+
+
+class QuizActivityContract : ActivityResultContract<Transaction, Transaction?>() {
+    override fun createIntent(context: Context, input: Transaction): Intent {
+        return Intent(context, QuizActivity::class.java)
+            .putExtra(GlobalConstants.TRANSACTION_IN_INTENT, input)
+    }
+
+    override fun parseResult(resultCode: Int, intent: Intent?): Transaction? = when {
+        resultCode == Activity.RESULT_OK && intent != null
+        -> extractTransaction(intent)
+
+        else -> null
+    }
+}
+
+
+fun extractTransaction(intent: Intent): Transaction? { //TODO use Parcelable here
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        intent.getSerializableExtra(GlobalConstants.TRANSACTION_IN_INTENT, Transaction::class.java)
+        intent.getParcelableExtra(GlobalConstants.TRANSACTION_IN_INTENT, Transaction::class.java)
     } else {
-        intent.getSerializableExtra(GlobalConstants.TRANSACTION_IN_INTENT) as Transaction?
+        intent.getParcelableExtra(GlobalConstants.TRANSACTION_IN_INTENT)
     }
 }
 
 
 enum class ExerciseType(val s: String) {
-    ADDITION(" + "), SUBTRACTION(" - ") ,DIVISION(" % "), MULTIPLICATION(" * ");
+    ADDITION(" + "), SUBTRACTION(" - "), DIVISION(" % "), MULTIPLICATION(" * ");
 }
-interface GlobalConstants{
-    companion object{
-        const val SETTINGS_IN_PREFERENCE:String="SETTINGS_IN_PREFERENCE"
-        const val TRANSACTION_IN_INTENT:String="TRANSACTION_IN_INTENT"
+
+interface GlobalConstants {
+    companion object {
+        const val SETTINGS_IN_PREFERENCE: String = "SETTINGS_IN_PREFERENCE"
+        const val TRANSACTION_IN_INTENT: String = "TRANSACTION_IN_INTENT"
     }
 }
 
 const val TASK_COUNT = 10
-data class Transaction (
-    val exerciseTypes: HashSet<ExerciseType>,
+
+@Parcelize
+data class Transaction(
+    val exerciseTypes: MutableSet<ExerciseType>,
     var questions: MutableList<Exercise>,
     var taskNumber: Int = TASK_COUNT
-): Serializable
-
-class SwitchChecker(private val pairs :Map<ExerciseType, SwitchCompat>,
-                    private val textView: TextView,
-                    private val emptyText:String){
-    fun getChecked(): HashSet<ExerciseType> {
-        return HashSet(pairs.filter{ entry ->entry.value.isChecked}.keys)
-    }
-    fun setTypes(){
-        val types = getChecked()
-        if (types.isEmpty()) {
-            textView.textSize = 40F
-            textView.text=emptyText
-        } else {
-            textView.textSize = 80F//
-            textView.text =
-                types.joinToString(separator = "") { it.s } //Kotlin version using collections functions
-        }
-    }
+) : Parcelable
 
 
-}
-
-data class Exercise(val question:String, val answers: List<Int>, val correctIndex: Int, var answerIndex:Int=-1):Serializable{
-    fun getAnswerDescription():String{
-       return question
-            .plus(" "+answers[answerIndex].toString()+" ")
-            .plus((answerIndex==correctIndex).toString())
-            .plus(if (answerIndex==correctIndex) " " else " correct is ".plus(answers[correctIndex].toString()))
+data class Exercise(
+    val question: String,
+    val answers: List<Int>,
+    val correctIndex: Int,
+    var answerIndex: Int = -1
+) : Serializable {
+    fun getAnswerDescription(): String {
+        return question
+            .plus(" " + answers[answerIndex].toString() + " ")
+            .plus((answerIndex == correctIndex).toString())
+            .plus(if (answerIndex == correctIndex) " " else " correct is ".plus(answers[correctIndex].toString()))
             .plus("\n")
     }
 }
