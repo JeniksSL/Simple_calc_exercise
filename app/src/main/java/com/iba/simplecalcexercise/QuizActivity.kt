@@ -1,18 +1,20 @@
 package com.iba.simplecalcexercise
 
+import android.R.id.message
 import android.content.Intent
 import android.graphics.Color
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.Button
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
+
 
 //TODO formatting
 class QuizActivity : AppCompatActivity() { //TODO Name
@@ -67,7 +69,8 @@ class QuizActivity : AppCompatActivity() { //TODO Name
     private fun startMainActivity(transaction: Transaction){
             val newIntent=Intent(applicationContext, MainActivity::class.java)
             newIntent.putExtra(GlobalConstants.TRANSACTION_IN_INTENT, transaction)
-            startActivity(newIntent)
+             setResult(RESULT_OK, newIntent)
+            finish()
     }
 }
 
@@ -146,7 +149,7 @@ class TaskCreator(private val types :Set<ExerciseType>) {
 
     private fun generateAdd(): Exercise {
         val res = Random.nextInt(minValue, maxValue)
-        val s1 = res - Random.nextInt(minValue, res)
+        val s1 = res - Random.nextInt(minValue-1, res)
         val s2 = res - s1;
         val lie1 = res + generateRandomDelta()
         var lie2 = res + generateRandomDelta()
@@ -160,7 +163,7 @@ class TaskCreator(private val types :Set<ExerciseType>) {
     }
     private fun generateSub(): Exercise {
         val sum = Random.nextInt(minValue, maxValue)
-        val sub = sum - Random.nextInt(minValue, sum)
+        val sub = sum - Random.nextInt(minValue-1, sum)
         val res = sum - sub;
         val lie1 = res +generateRandomDelta()
         var lie2 = res +generateRandomDelta()

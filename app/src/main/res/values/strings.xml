@@ -10,4 +10,5 @@
     <string name="skip">Skip</string>
     <string name="start">Start</string>
     <string name="chose_type">Please choose the type of exercises</string>
+    <string name="add">+</string>
 </resources>

@@ -1,23 +1,31 @@
 package com.iba.simplecalcexercise
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.result.ActivityResultCallback
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContract
 import androidx.appcompat.widget.SwitchCompat
+import org.apache.commons.lang3.StringUtils
 import java.io.Serializable
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var pairs :Map<ExerciseType, SwitchCompat>
-    private lateinit var selectedTaskView: TextView
     private lateinit var taskTypeView: TextView
     private lateinit var resultView: TextView
     private lateinit var startButton:Button
+    private lateinit var viewPairs  :Map<ExerciseType, TextView>
+    private lateinit var skipButton: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,33 +36,59 @@ class MainActivity : AppCompatActivity() {
             Pair(ExerciseType.MULTIPLICATION, findViewById<SwitchCompat>(R.id.switch_multi)),
             Pair(ExerciseType.DIVISION, findViewById<SwitchCompat>(R.id.switch_divide))
         )
-        selectedTaskView = findViewById(R.id.selectedTaskView)
+        viewPairs= mapOf(
+            Pair(ExerciseType.ADDITION, findViewById<SwitchCompat>(R.id.tv_add_indicate)),
+            Pair(ExerciseType.SUBTRACTION, findViewById<SwitchCompat>(R.id.tv_sub_indicate)),
+            Pair(ExerciseType.MULTIPLICATION, findViewById<SwitchCompat>(R.id.tv_multi_indicate)),
+            Pair(ExerciseType.DIVISION, findViewById<SwitchCompat>(R.id.tv_divide_indicate))
+        )
         taskTypeView = findViewById(R.id.task_type)
-        resultView = findViewById(R.id.resultView)
+        resultView = findViewById(R.id.tv_result)
         startButton = findViewById(R.id.button)
+        skipButton=findViewById(R.id.btn_skip)
+        viewPairs.forEach { entry ->  entry.value.text=entry.key.s}
+        pairs.forEach { entry ->
+            entry.value.text=entry.key.name
+        }
     }
 
     override fun onStart() { //overall suggestion: Replace it with Command pattern to simplify logic https://refactoring.guru/design-patterns/command
         super.onStart()
-        applySettings()
-        val checker = SwitchChecker(pairs, selectedTaskView, getString(R.string.chose_type))
-        checker.setTypes()
+        val sharedPreferences = applicationContext.getSharedPreferences(GlobalConstants.SETTINGS_IN_PREFERENCE, Context.MODE_PRIVATE)
 
-        pairs.forEach { entry ->
-            entry.value.setOnCheckedChangeListener{ _, _ ->saveSettings(); checker.setTypes() };
-            entry.value.text=entry.key.name
-        }
-        val trans= extractTransaction(intent)
-        if (trans!=null&&trans.questions.isNotEmpty()) showResults(trans.questions)
-        startButton.setOnClickListener {
-            if (startButton.text==getString(R.string.skip)) hideResults()
-            else {
-                val list = checker.getChecked()
-                if(list.isNotEmpty()){//TODO usually startActivity and any navigation action is a separate clearly named function
-                  startQuizActivity(list)
-                }
+
+        applySettings()
+        pairs.forEach { (exerciseType, switchCompat) ->SwitchCompatInvoker(
+            switchCompat,
+            listOf(ShowCommand(TextViewReceiver(viewPairs[exerciseType]!!))),
+            listOf(HideCommand(TextViewReceiver(viewPairs[exerciseType]!!))),
+            listOf(SaveCommand(CompatPreferenceReceiver(sharedPreferences,switchCompat)))
+        ) }
+
+        ButtonInvoker(skipButton, listOf(
+            ShowCommand(ViewReceiver(findViewById<LinearLayout>(R.id.ll_task_type))),
+            EnableCommand(ViewReceiver(startButton)),
+            HideCommand(ViewReceiver(findViewById<LinearLayout>(R.id.ll_result))),
+            WriteCommand(TextViewReceiver(taskTypeView),getString(R.string.select_tasks_type)),
+            ShowCommand(ViewReceiver(findViewById<LinearLayout>(R.id.ll_compat))
+            )))
+
+        val clipboard=Clipboard()
+        val activityLauncher = registerForActivityResult(QuizActivityContract(), ActivityResultInvoker(
+            mutableListOf(HideCommand(ViewReceiver(findViewById<LinearLayout>(R.id.ll_task_type))),
+                    DisableCommand(ViewReceiver(startButton)),
+                    ShowCommand(ViewReceiver(findViewById<LinearLayout>(R.id.ll_result))),
+                    WriteCommand(TextViewReceiver(taskTypeView),getString(R.string.result_label)),
+                    HideCommand(ViewReceiver(findViewById<LinearLayout>(R.id.ll_compat))),
+                    PasteCommand(TextViewReceiver(resultView), clipboard))
+        ).apply {this.beforeList=listOf(CopyCommand(this, clipboard))  })/* { result ->
+            if (result!=null) {
+                val questions = result.questions
+
+                WriteCommand(TextViewReceiver(resultView), questions.joinToString(separator = ""){ it.getAnswerDescription()}).execute()
             }
-        }
+        }*/
+        ButtonInvoker(startButton, listOf(LoadCommand(ActivityResultReceiver(activityLauncher, Transaction(pairs.keys.filter { pairs[it]?.isChecked?:false }.toSet(), mutableListOf())))))
 
     }
     private fun applySettings(){
@@ -63,44 +97,156 @@ class MainActivity : AppCompatActivity() {
        //TODO its Compat, not Compact, derives from Compatibility, long story)
     }
 
-    private fun saveSettings() {
-        val sharedPreferences = applicationContext.getSharedPreferences(GlobalConstants.SETTINGS_IN_PREFERENCE, Context.MODE_PRIVATE)
-        pairs.forEach { entry ->  sharedPreferences.edit().putString(entry.key.name, entry.value.isChecked.toString()).apply()}
+    private fun startInvoker(commands:List<Command>){
+        commands.forEach { it.execute() }
     }
 
-    private fun showResults(questions: List<Exercise>){
-        taskTypeView.text = getString(R.string.result_label)
-        resultView.text = questions.joinToString(separator = "") { it.getAnswerDescription() }
-           //Java syntax
-        pairs.values.forEach{switchCompat -> switchCompat.visibility= View.INVISIBLE }
-        startButton.text=getString(R.string.skip)
-        selectedTaskView.visibility= View.INVISIBLE
+
+}
+data class Clipboard(public var text: String=StringUtils.EMPTY)
+
+interface Command {
+    fun execute()
+}
+
+class WriteCommand(private var receiver: Receiver, private val text: String):Command{
+    override fun execute() {
+        receiver.write(text)
     }
-    private fun hideResults(){
-        startButton.text=getString(R.string.start)
-        resultView.visibility=View.INVISIBLE
-        pairs.values.forEach{switchCompat -> switchCompat.visibility= View.VISIBLE }
-        selectedTaskView.visibility= View.VISIBLE
-        taskTypeView.text=getString(R.string.select_tasks_type)
+}
+class ShowCommand(private var receiver: Receiver):Command{
+    override fun execute() {
+        receiver.show()
     }
-    private fun startQuizActivity(exerciseTypes: HashSet<ExerciseType>){
-        val newIntent = Intent(applicationContext, QuizActivity::class.java)
-        newIntent.putExtra(GlobalConstants.TRANSACTION_IN_INTENT, Transaction(exerciseTypes, mutableListOf()))
-        startActivity(newIntent)
+}
+class HideCommand(private var receiver: Receiver):Command{
+    override fun execute() {
+        receiver.hide()
+    }
+}
+class SaveCommand(private var receiver: Receiver):Command{
+    override fun execute() {
+        receiver.save()
+    }
+}
+class EnableCommand(private var receiver: Receiver):Command{
+    override fun execute() {
+        receiver.enabled(true)
+    }
+}
+class DisableCommand(private var receiver: Receiver):Command{
+    override fun execute() {
+        receiver.enabled(false)
+    }
+}
+class LoadCommand(private var receiver: Receiver):Command{
+    override fun execute() {
+        receiver.load()
+    }
+}
+class CopyCommand(private var receiver: Receiver, private val clipboard: Clipboard):Command{
+    override fun execute() {
+        receiver.copy(clipboard)
+    }
+}
+class PasteCommand(private var receiver: Receiver, private val clipboard: Clipboard):Command{
+    override fun execute() {
+        receiver.write(clipboard.text)
+    }
+}
+
+
+abstract class Receiver{
+    open fun hide(){}
+    open fun show(){}
+    open fun write(text:String){}
+    open fun load(){}
+    open fun save(){}
+    open fun clear(text:String){}
+    open fun copy(clipboard: Clipboard){clipboard.text=StringUtils.EMPTY}
+    open fun coloring(color: Int){}
+    open fun enabled(isEnabled: Boolean){}
+    open fun cut(text:String){}
+}
+
+class ActivityResultReceiver<T>(private val activityResultLauncher: ActivityResultLauncher<T>, private val t:T):Receiver(){
+    override fun load() {
+        activityResultLauncher.launch(t)
+    }
+}
+class ActivityResultInvoker(val commands:List<Command>):ActivityResultCallback<Transaction?>, Receiver(){
+    var transaction:Transaction?=null
+    lateinit var beforeList:List<Command>
+    override fun onActivityResult(result: Transaction?) {
+
+        transaction=result
+        beforeList.forEach {  it.execute() }
+        commands.forEach { it.execute() }
+    }
+    override fun copy(clipboard: Clipboard) {
+        clipboard.text=transaction?.questions?.joinToString(separator = ""){ it.getAnswerDescription()}?:StringUtils.EMPTY
     }
 
 
 }
 
-abstract class Command(private val receiver: Receiver) {
-    abstract fun execute()
+class TextViewReceiver(private val textView: TextView):Receiver(){
+    override fun hide(){textView.visibility=View.INVISIBLE}
+    override fun show(){textView.visibility=View.VISIBLE}
+    override fun write(text:String){textView.text=text}
+    override fun clear(text:String){textView.text= StringUtils.EMPTY}
+    override fun copy(clipboard: Clipboard){clipboard.text= textView.text.toString()}
+    override fun coloring(color: Int){textView.setBackgroundColor(color)}
+    override fun enabled(isEnabled: Boolean){textView.isEnabled=isEnabled}
+    override fun cut(text:String){textView.text=textView.text.removePrefix(text)}
 }
-abstract class Receiver(private val textView: TextView){
-
+class ViewReceiver(private val view: View):Receiver(){
+    override fun hide(){view.visibility=View.INVISIBLE}
+    override fun show(){view.visibility=View.VISIBLE}
 }
 
-class SwitchCompatContainer(){
+class CompatPreferenceReceiver(private val preferences: SharedPreferences,private val compat: SwitchCompat):Receiver(){
 
+    override fun save() {
+        preferences.edit().putBoolean(compat.id.toString(), compat.isChecked).apply()
+    }
+    override fun load() {
+        compat.isChecked=preferences.getBoolean(compat.id.toString(),false)
+    }
+}
+
+class SwitchCompatInvoker(private val switchCompat: SwitchCompat,
+    private val commandsOnChecked:List<Command>,
+                            private val commandsOnUnChecked:List<Command>,
+                            private val commandsOnCheckChanged:List<Command>){
+    init {
+        switchCompat.setOnCheckedChangeListener{button, _->
+            commandsOnCheckChanged.forEach { it.execute()  }
+            if (button.isChecked) commandsOnChecked.forEach { it.execute()}
+            else commandsOnUnChecked.forEach { it.execute()}
+        }
+    }
+}
+class ButtonInvoker(private val button: Button,  private val commandsOnClick:List<Command>){
+    init {
+        button.setOnClickListener {   commandsOnClick.forEach { it.execute() }}
+    }
+}
+
+class QuizActivityContract : ActivityResultContract<Transaction, Transaction?>() {
+    override fun createIntent(context: Context, input: Transaction): Intent {
+        return Intent(context, QuizActivity::class.java)
+            .putExtra(GlobalConstants.TRANSACTION_IN_INTENT, input)
+    }
+
+    override fun parseResult(resultCode: Int, intent: Intent?): Transaction? = when {
+        resultCode != Activity.RESULT_OK -> null
+        else -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent?.getSerializableExtra(GlobalConstants.TRANSACTION_IN_INTENT, Transaction::class.java)
+        } else {
+           intent?.getSerializableExtra(GlobalConstants.TRANSACTION_IN_INTENT)as Transaction?
+        }
+    }
 }
 
 
@@ -124,28 +270,15 @@ interface GlobalConstants{
 }
 
 const val TASK_COUNT = 10
-data class Transaction (
-    val exerciseTypes: HashSet<ExerciseType>,
+data class Transaction(
+    val exerciseTypes: Set<ExerciseType>,
     var questions: MutableList<Exercise>,
     var taskNumber: Int = TASK_COUNT
 ): Serializable
 
-class SwitchChecker(private val pairs :Map<ExerciseType, SwitchCompat>,
-                    private val textView: TextView,
-                    private val emptyText:String){
+class SwitchChecker(private val pairs :Map<ExerciseType, SwitchCompat>){
     fun getChecked(): HashSet<ExerciseType> {
         return HashSet(pairs.filter{ entry ->entry.value.isChecked}.keys)
-    }
-    fun setTypes(){
-        val types = getChecked()
-        if (types.isEmpty()) {
-            textView.textSize = 40F
-            textView.text=emptyText
-        } else {
-            textView.textSize = 80F//
-            textView.text =
-                types.joinToString(separator = "") { it.s } //Kotlin version using collections functions
-        }
     }
 
 
