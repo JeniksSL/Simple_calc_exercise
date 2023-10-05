@@ -1,6 +1,6 @@
 package com.iba.simplecalcexercise
 
-import android.R.id.message
+import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
@@ -26,11 +26,12 @@ class QuizActivity : AppCompatActivity() { //TODO Name
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main2)
-        buttons= listOf<Button>(findViewById(R.id.button2), findViewById(R.id.button3), findViewById(R.id.button4))
-       textView=findViewById(R.id.textView2)
-       progressBar=findViewById(R.id.progressBar)
+        buttons= listOf<Button>(findViewById(R.id.btn_1_option), findViewById(R.id.btn_2_option), findViewById(R.id.btn_3_option))
+       textView=findViewById(R.id.tv_question)
+       progressBar=findViewById(R.id.pb_answers)
         progressBar.max= TASK_COUNT
     }
+
 
     override fun onStart() {
         super.onStart()
@@ -43,33 +44,18 @@ class QuizActivity : AppCompatActivity() { //TODO Name
                     textView,
                     progressBar,
                     transaction,
-                    this::startMainActivity)
+                    this::returnToMainActivity)
                 buttons.forEach{button -> button.setOnClickListener{buttonListener.handleClick(button.text.toString())} }
                 buttonListener.updateExercise()
             }
             ?:{
-                startActivity(Intent(applicationContext, MainActivity::class.java))
-            } // more Kotlin way
-
-//        val transaction: Transaction? = extractTransaction(intent)
-//        if(transaction==null) startActivity(Intent(applicationContext, MainActivity::class.java));
-//        val taskCreator= TaskCreator(transaction!!.exerciseTypes)
-//
-//        val buttonListener = ButtonListener(
-//            buttons,
-//            taskCreator,
-//            textView,
-//            progressBar,
-//            transaction,
-//            this::startMainActivity)
-//        buttons.forEach{button -> button.setOnClickListener{buttonListener.handleClick(button.text.toString())} }
-//        buttonListener.updateExercise()
+                returnToMainActivity(Transaction(mutableSetOf(), mutableListOf()),Activity.RESULT_CANCELED)
+            }
     }
-
-    private fun startMainActivity(transaction: Transaction){
+    private fun returnToMainActivity(transaction: Transaction, result: Int){
             val newIntent=Intent(applicationContext, MainActivity::class.java)
             newIntent.putExtra(GlobalConstants.TRANSACTION_IN_INTENT, transaction)
-             setResult(RESULT_OK, newIntent)
+            setResult(result, newIntent)
             finish()
     }
 }
@@ -80,7 +66,7 @@ class ButtonListener(
     private val textView: TextView,
     private val progressBar: ProgressBar,
     private var transaction: Transaction,
-    private val kFunction: (Transaction) -> Unit
+    private val kFunction: (Transaction, Int) -> Unit
 ){
     private var previousEx: Exercise?=null
     @OptIn(DelicateCoroutinesApi::class)
@@ -109,7 +95,7 @@ class ButtonListener(
         progressBar.setProgress(progress, true)
         if (progress>= TASK_COUNT)
         {
-            kFunction.invoke(transaction)
+            kFunction.invoke(transaction, Activity.RESULT_OK)
         }
 
     }
@@ -129,6 +115,7 @@ class TaskCreator(private val types :Set<ExerciseType>) {
     private val maxDelta:Int = 7
     private val minDelta:Int = 1
     private val symbolIs = " = "
+
 
     fun getRandomTask(): Exercise {
         return createTask(types.random())

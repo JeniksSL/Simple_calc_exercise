@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import android.graphics.Color
 import android.view.View
 import android.widget.Button
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.result.ActivityResultCallback
 import androidx.activity.result.ActivityResultLauncher
@@ -17,7 +18,7 @@ import org.apache.commons.lang3.StringUtils
 
 
 
-data class Clipboard(public var text: String = StringUtils.EMPTY)
+data class Clipboard(var text: String=StringUtils.EMPTY)
 interface Command {
     fun execute()
 }
@@ -27,15 +28,18 @@ interface Receiver {
     fun hide() {}
     fun show() {}
     fun write(text: String) {}
-    fun load() {}
-    fun save() {}
-    fun clear(text: String) {}
+    fun load(sharedPreferences: SharedPreferences) {}
+    fun save(sharedPreferences: SharedPreferences) {}
+    fun copyFromIndex(clipboard: Clipboard, index:Int) {}
     fun copy(clipboard: Clipboard) {
-        clipboard.text = StringUtils.EMPTY
+    }
+    fun paste(clipboard: Clipboard) {
     }
     fun coloring(color: Int) {}
     fun enabled(isEnabled: Boolean) {}
     fun cut(text: String) {}
+
+    fun launch(){ }
 }
 
 
@@ -52,14 +56,19 @@ class CutCommand(private var receiver: Receiver, private val text: String) : Com
     }
 }
 
-class BlinkCommand(private var receiver: Receiver, private val clipboard: Clipboard) : Command {
+class BlinkCommand(
+    private var receiver: Receiver,
+    private val clipboard: Clipboard,
+    private val fromColor: Int,
+    private val toColor: Int,
+    private val delay:Long=250L) : Command {
     @OptIn(DelicateCoroutinesApi::class)
     override fun execute() {
         if (StringUtils.isEmpty(clipboard.text))
             GlobalScope.launch(Dispatchers.Main) {
-                receiver.coloring(Color.GREEN)
-                delay(1000L)
-                receiver.coloring(Color.WHITE)
+                receiver.coloring(toColor)
+                delay(delay)
+                receiver.coloring(fromColor)
             }
     }
 
@@ -72,9 +81,9 @@ class VisibilityCommand(private val receiver: Receiver, private val isVisible: B
     }
 }
 
-class SaveCommand(private var receiver: Receiver) : Command {
+class SaveCommand(private var receiver: Receiver, private val sharedPreferences: SharedPreferences) : Command {
     override fun execute() {
-        receiver.save()
+        receiver.save(sharedPreferences)
     }
 }
 
@@ -90,13 +99,13 @@ class DisableCommand(private var receiver: Receiver) : Command {
     }
 }
 
-class LoadCommand(private var receiver: Receiver) : Command {
+class LoadCommand(private var receiver: Receiver, private val sharedPreferences: SharedPreferences) : Command {
     override fun execute() {
-        receiver.load()
+        receiver.load(sharedPreferences)
     }
 }
 
-class CopyCommand(private var receiver: Receiver, private val clipboard: Clipboard) : Command {
+class CopyCommand(private var receiver:Receiver, private val clipboard: Clipboard) : Command {
     override fun execute() {
         receiver.copy(clipboard)
     }
@@ -104,7 +113,32 @@ class CopyCommand(private var receiver: Receiver, private val clipboard: Clipboa
 
 class PasteCommand(private var receiver: Receiver, private val clipboard: Clipboard) : Command {
     override fun execute() {
-        receiver.write(clipboard.text)
+        receiver.paste(clipboard)
+    }
+}
+
+class LaunchCommand(private var receiver: Receiver) :Command {    override fun execute() {
+        receiver.launch()
+    }
+}
+
+class TypeSwitchViewReceiver(
+    val exerciseType: ExerciseType,
+    val switchCompat: SwitchCompat,
+    val textView: TextView
+): Receiver{
+    init{
+        textView.text = exerciseType.s
+        switchCompat.text = exerciseType.name
+    }
+    override fun save(sharedPreferences: SharedPreferences) {
+        sharedPreferences.edit().putBoolean(switchCompat.id.toString(), switchCompat.isChecked).apply()
+    }
+
+    override fun load(sharedPreferences: SharedPreferences) {
+        switchCompat.isChecked = sharedPreferences.getBoolean(switchCompat.id.toString(), false)
+        if (switchCompat.isChecked) textView.visibility = View.VISIBLE
+        else textView.visibility = View.INVISIBLE
     }
 }
 
@@ -114,7 +148,7 @@ class ActivityResultReceiver(
     private val activityResultLauncher: ActivityResultLauncher<Transaction>,
     private val transaction: Transaction
 ) : Receiver {
-    override fun load() {
+    override fun launch() {
         if (transaction.exerciseTypes.isNotEmpty()) activityResultLauncher.launch(transaction)
     }
 }
@@ -137,14 +171,12 @@ class ActivityResultInvoker(private val commands: List<Command>) :
     ActivityResultCallback<Transaction?>,
     Receiver {
     private var transaction: Transaction? = null
-    val beforeList = mutableListOf<Command>()
+    val commandsBefore = mutableListOf<Command>()
     override fun onActivityResult(result: Transaction?) {
-
         transaction = result
-        beforeList.forEach { it.execute() }
+        commandsBefore.forEach { it.execute() }
         commands.forEach { it.execute() }
     }
-
     override fun copy(clipboard: Clipboard) {
         clipboard.text =
             transaction?.questions?.joinToString(separator = "") { it.getAnswerDescription() }
@@ -176,10 +208,6 @@ class TextViewReceiver(private val textView: TextView) : ViewReceiver(textView) 
         textView.text = text
     }
 
-    override fun clear(text: String) {
-        textView.text = StringUtils.EMPTY
-    }
-
     override fun copy(clipboard: Clipboard) {
         clipboard.text = textView.text.toString()
     }
@@ -188,20 +216,6 @@ class TextViewReceiver(private val textView: TextView) : ViewReceiver(textView) 
         textView.text = textView.text.removePrefix(text)
     }
 }
-
-class CompatPreferenceReceiver(
-    private val preferences: SharedPreferences,
-    private val compat: SwitchCompat
-) : Receiver {
-    override fun save() {
-        preferences.edit().putBoolean(compat.id.toString(), compat.isChecked).apply()
-    }
-
-    override fun load() {
-        compat.isChecked = preferences.getBoolean(compat.id.toString(), false)
-    }
-}
-
 
 class SwitchCompatInvoker(
     private val switchCompat: SwitchCompat,
@@ -220,9 +234,14 @@ class SwitchCompatInvoker(
 
 class ButtonInvoker(
     private val button: Button,
-    private val commandsOnClick: List<Command>,
+    private val commandsOnClickBefore: List<Command>,
+    private val commandsOnClick: List<Command>
+
 ) {
     init {
-        button.setOnClickListener { commandsOnClick.forEach { it.execute() } }
+
+        button.setOnClickListener {
+            commandsOnClickBefore.forEach { it.execute() }
+            commandsOnClick.forEach { it.execute() } }
     }
 }

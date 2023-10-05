@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.graphics.Color
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
@@ -11,153 +12,84 @@ import android.os.Parcelable
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.appcompat.widget.SwitchCompat
 import kotlinx.parcelize.Parcelize
+import org.apache.commons.lang3.StringUtils
 import java.io.Serializable
 
 class MainActivity : AppCompatActivity() {
 
-
-    private lateinit var taskTypeView: TextView
-    private lateinit var startButton: Button
-
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        taskTypeView = findViewById(R.id.task_type)
-        startButton = findViewById(R.id.button)
-        val transactionReceiver = TransactionReceiver(Transaction(mutableSetOf(), mutableListOf()))
+
         val sharedPreferences = applicationContext.getSharedPreferences(
             GlobalConstants.SETTINGS_IN_PREFERENCE,
             Context.MODE_PRIVATE
         )
-        val activityLauncher = initializeActivityLauncher()
 
+        //Create receivers
+        val transactionReceiver = TransactionReceiver(Transaction(mutableSetOf(), mutableListOf()))
+        val llTaskTypeReceiver = ViewReceiver(findViewById<LinearLayout>(R.id.ll_task_type))
+        val llResultReceiver = ViewReceiver(findViewById<LinearLayout>(R.id.ll_result))
+            .apply { this.hide() }
+        val btnStartReceiver = TextViewReceiver(findViewById<Button>(R.id.btn_start))
+        val tvTaskTypeReceiver = TextViewReceiver(findViewById<TextView>(R.id.tv_task_type))
+        val llCompatReceiver = ViewReceiver(findViewById<LinearLayout>(R.id.ll_compat))
+        val tvResultReceiver = TextViewReceiver(findViewById(R.id.tv_result))
 
+        val addTypeSwitchViewReceiver = TypeSwitchViewReceiver(
+            ExerciseType.ADDITION,
+            findViewById(R.id.switch_add),
+            findViewById<SwitchCompat>(R.id.tv_add_indicate)
+        ).apply { this.load(sharedPreferences) }
 
+        val subTypeSwitchViewReceiver = TypeSwitchViewReceiver(
+            ExerciseType.SUBTRACTION,
+            findViewById(R.id.switch_sub),
+            findViewById<SwitchCompat>(R.id.tv_sub_indicate)
+        ).apply { this.load(sharedPreferences) }
+        val multiTypeSwitchViewReceiver = TypeSwitchViewReceiver(
+            ExerciseType.MULTIPLICATION,
+            findViewById(R.id.switch_multi),
+            findViewById(R.id.tv_multi_indicate)
+        ).apply { this.load(sharedPreferences) }
+        val divTypeSwitchViewReceiver = TypeSwitchViewReceiver(
+            ExerciseType.DIVISION,
+            findViewById(R.id.switch_divide),
+            findViewById(R.id.tv_divide_indicate)
+        ).apply { this.load(sharedPreferences) }
 
-        initializeSwitchCompats(sharedPreferences, transactionReceiver)
-        initializeSkipButton()
-        initializeStartButton(activityLauncher, transactionReceiver)
-        applicationInvoker(
-            VisibilityCommand(
-                ViewReceiver(findViewById<LinearLayout>(R.id.ll_result)),
-                false
-            )
-        )
-    }
-
-    private fun initializeStartButton(
-        activityLauncher: ActivityResultLauncher<Transaction>,
-        transactionReceiver: TransactionReceiver
-    ) {
+        //Invokers and commands
+        //Activity Launcher Invoker/Receiver
         val clipboard = Clipboard()
-        ButtonInvoker(
-            startButton,
-            listOf(
-                LoadCommand(
-                    ActivityResultReceiver(
-                        activityLauncher,
-                        transactionReceiver.transaction
-                    )
-                ), CopyCommand(transactionReceiver, clipboard),
-                BlinkCommand(TextViewReceiver(taskTypeView), clipboard)
-            )
-        )
-    }
-
-    private fun initializeSkipButton() {
-        ButtonInvoker(
-            findViewById(R.id.btn_skip),
-            listOf(
-                VisibilityCommand(ViewReceiver(findViewById<LinearLayout>(R.id.ll_task_type))),
-                EnableCommand(ViewReceiver(startButton)),
-                VisibilityCommand(ViewReceiver(findViewById<LinearLayout>(R.id.ll_result)), false),
-                WriteCommand(TextViewReceiver(taskTypeView), getString(R.string.select_tasks_type)),
-                VisibilityCommand(
-                    ViewReceiver(findViewById<LinearLayout>(R.id.ll_compat))
+        val activityLauncher =
+            registerForActivityResult(QuizActivityContract(), ActivityResultInvoker(
+                listOf(
+                    VisibilityCommand(llTaskTypeReceiver, false),
+                    DisableCommand(btnStartReceiver),
+                    VisibilityCommand(llResultReceiver),
+                    WriteCommand(tvTaskTypeReceiver, getString(R.string.result_label)),
+                    VisibilityCommand(llCompatReceiver, false),
+                    PasteCommand(tvResultReceiver, clipboard)
                 )
-            )
+            ).apply { this.commandsBefore.add(CopyCommand(this, clipboard)) })
+
+        val activityResultReceiver = ActivityResultReceiver(
+            activityLauncher,
+            transactionReceiver.transaction
         )
-    }
 
-    private fun initializeActivityLauncher(): ActivityResultLauncher<Transaction> {
-        val clipboard = Clipboard()
-        return registerForActivityResult(QuizActivityContract(), ActivityResultInvoker(
-            listOf(
-                VisibilityCommand(
-                    ViewReceiver(findViewById<LinearLayout>(R.id.ll_task_type)),
-                    false
-                ),
-                DisableCommand(TextViewReceiver(startButton)),
-                VisibilityCommand(ViewReceiver(findViewById<LinearLayout>(R.id.ll_result))),
-                WriteCommand(
-                    TextViewReceiver(taskTypeView),
-                    getString(R.string.result_label)
-                ),
-                VisibilityCommand(
-                    ViewReceiver(findViewById<LinearLayout>(R.id.ll_compat)),
-                    false
-                ),
-                PasteCommand(TextViewReceiver(findViewById(R.id.tv_result)), clipboard)
-            )
-        ).apply { this.beforeList.add(CopyCommand(this, clipboard)) })
-    }
-
-    private fun initializeSwitchCompats(
-        sharedPreferences: SharedPreferences,
-        transactionReceiver: TransactionReceiver
-    ) {
+        //SwitchCompat Invoker
         listOf(
-            TypeSwitchView(
-                ExerciseType.ADDITION,
-                findViewById(R.id.switch_add),
-                findViewById<SwitchCompat>(R.id.tv_add_indicate)
-            ),
-            TypeSwitchView(
-                ExerciseType.SUBTRACTION,
-                findViewById(R.id.switch_sub),
-                findViewById<SwitchCompat>(R.id.tv_sub_indicate)
-            ),
-            TypeSwitchView(
-                ExerciseType.MULTIPLICATION,
-                findViewById(R.id.switch_multi),
-                findViewById(R.id.tv_multi_indicate)
-            ),
-            TypeSwitchView(
-                ExerciseType.DIVISION,
-                findViewById(R.id.switch_divide),
-                findViewById(R.id.tv_divide_indicate)
-            )
+            addTypeSwitchViewReceiver,
+            subTypeSwitchViewReceiver,
+            multiTypeSwitchViewReceiver,
+            divTypeSwitchViewReceiver
         )
             .forEach {
-                applicationInvoker(
-                    LoadCommand(
-                        CompatPreferenceReceiver(
-                            sharedPreferences,
-                            it.switchCompat
-                        )
-                    )
-                )
-                applicationInvoker(
-                    VisibilityCommand(
-                        TextViewReceiver(it.textView),
-                        it.switchCompat.isChecked
-                    )
-
-                )
-                if (it.switchCompat.isChecked) applicationInvoker(
-                    WriteCommand(
-                        transactionReceiver,
-                        it.exerciseType.name
-                    )
-                )
-                it.textView.text = it.exerciseType.s
-                it.switchCompat.text = it.exerciseType.name
-
+                if (it.switchCompat.isChecked) transactionReceiver.apply { this.write( it.exerciseType.name) }
                 SwitchCompatInvoker(
                     it.switchCompat,
                     listOf(
@@ -169,33 +101,38 @@ class MainActivity : AppCompatActivity() {
                         CutCommand(transactionReceiver, it.exerciseType.name)
                     ),
                     listOf(
-                        SaveCommand(
-                            CompatPreferenceReceiver(
-                                sharedPreferences,
-                                it.switchCompat
-                            )
-                        )
+                        SaveCommand(it, sharedPreferences)
                     )
                 )
             }
+
+
+        //Skip button
+        ButtonInvoker(
+            findViewById(R.id.btn_skip),
+            listOf(),
+            listOf(
+                EnableCommand(btnStartReceiver),
+                VisibilityCommand(llTaskTypeReceiver),
+                VisibilityCommand(llResultReceiver, false),
+                VisibilityCommand(llCompatReceiver),
+                WriteCommand(tvTaskTypeReceiver, getString(R.string.select_tasks_type))
+            )
+        )
+        //Start button
+        val transClipboard = Clipboard()
+        ButtonInvoker(
+            findViewById(R.id.btn_start),
+            listOf(
+                CopyCommand(transactionReceiver, transClipboard)
+            ),
+            listOf(
+                BlinkCommand(tvTaskTypeReceiver, transClipboard, Color.WHITE, Color.GREEN, 1000),
+                LaunchCommand(activityResultReceiver)
+            )
+        )
     }
-
-
-    private fun applicationInvoker(vararg commands: Command) {
-        commands.forEach { it.execute() }
-    }
-
-
 }
-
-
-
-data class TypeSwitchView(
-    val exerciseType: ExerciseType,
-    val switchCompat: SwitchCompat,
-    val textView: TextView
-)
-
 
 
 class QuizActivityContract : ActivityResultContract<Transaction, Transaction?>() {
