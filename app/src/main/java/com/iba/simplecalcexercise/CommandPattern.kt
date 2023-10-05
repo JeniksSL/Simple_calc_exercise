@@ -2,6 +2,7 @@ package com.iba.simplecalcexercise
 
 import android.content.SharedPreferences
 import android.graphics.Color
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.ProgressBar
@@ -214,6 +215,10 @@ class TextViewReceiver(private val textView: TextView) : ViewReceiver(textView) 
 
     override fun cut(text: String) {
         textView.text = textView.text.removePrefix(text)
+    }
+
+    override fun paste(clipboard: Clipboard) {
+        textView.text=clipboard.text
     }
 }
 

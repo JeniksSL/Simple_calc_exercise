@@ -16,8 +16,8 @@ import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 
-//TODO formatting
-class QuizActivity : AppCompatActivity() { //TODO Name
+
+class QuizActivity : AppCompatActivity() {
 
     private lateinit var buttons: List<Button>
     private lateinit var progressBar:ProgressBar
