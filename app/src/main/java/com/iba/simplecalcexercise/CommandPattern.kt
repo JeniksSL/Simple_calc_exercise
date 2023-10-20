@@ -29,8 +29,8 @@ interface Receiver {
     fun hide() {}
     fun show() {}
     fun write(text: String) {}
-    fun load(sharedPreferences: SharedPreferences) {}
-    fun save(sharedPreferences: SharedPreferences) {}
+    fun load() {}
+    fun save() {}
     fun copyFromIndex(clipboard: Clipboard, index:Int) {}
     fun copy(clipboard: Clipboard) {
     }
@@ -82,9 +82,9 @@ class VisibilityCommand(private val receiver: Receiver, private val isVisible: B
     }
 }
 
-class SaveCommand(private var receiver: Receiver, private val sharedPreferences: SharedPreferences) : Command {
+class SaveCommand(private var receiver: Receiver) : Command {
     override fun execute() {
-        receiver.save(sharedPreferences)
+        receiver.save()
     }
 }
 
@@ -100,9 +100,9 @@ class DisableCommand(private var receiver: Receiver) : Command {
     }
 }
 
-class LoadCommand(private var receiver: Receiver, private val sharedPreferences: SharedPreferences) : Command {
+class LoadCommand(private var receiver: Receiver) : Command {
     override fun execute() {
-        receiver.load(sharedPreferences)
+        receiver.load()
     }
 }
 
@@ -126,20 +126,23 @@ class LaunchCommand(private var receiver: Receiver) :Command {    override fun e
 class TypeSwitchViewReceiver(
     val exerciseType: ExerciseType,
     val switchCompat: SwitchCompat,
-    val textView: TextView
+    val textView: TextView,
+    private val sharedPreferences: SharedPreferences
 ): Receiver{
+    val switchCompatStore:SwitchCompatStore =
+        SwitchCompatStore(sharedPreferences,switchCompat.id)
     init{
         textView.text = exerciseType.s
         switchCompat.text = exerciseType.name
     }
-    override fun save(sharedPreferences: SharedPreferences) {
-        sharedPreferences.edit().putBoolean(switchCompat.id.toString(), switchCompat.isChecked).apply()
+    override fun save() {
+        switchCompatStore.isChecked=switchCompat.isChecked
     }
 
-    override fun load(sharedPreferences: SharedPreferences) {
-        switchCompat.isChecked = sharedPreferences.getBoolean(switchCompat.id.toString(), false)
-        if (switchCompat.isChecked) textView.visibility = View.VISIBLE
-        else textView.visibility = View.INVISIBLE
+    override fun load() {
+        switchCompat.isChecked = switchCompatStore.isChecked
+        textView.visibility = if (switchCompat.isChecked)  View.VISIBLE
+        else View.INVISIBLE
     }
 }
 
@@ -225,12 +228,10 @@ class TextViewReceiver(private val textView: TextView) : ViewReceiver(textView) 
 class SwitchCompatInvoker(
     private val switchCompat: SwitchCompat,
     private val commandsOnChecked: List<Command>,
-    private val commandsOnUnChecked: List<Command>,
-    private val commandsOnCheckChanged: List<Command>
+    private val commandsOnUnChecked: List<Command>
 ) {
     init {
         switchCompat.setOnCheckedChangeListener { button, _ ->
-            commandsOnCheckChanged.forEach { it.execute() }
             if (button.isChecked) commandsOnChecked.forEach { it.execute() }
             else commandsOnUnChecked.forEach { it.execute() }
         }

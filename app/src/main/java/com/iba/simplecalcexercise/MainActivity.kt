@@ -9,6 +9,7 @@ import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Parcelable
+import android.util.Log
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -20,6 +21,9 @@ import java.io.Serializable
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var sReceiverList: List<TypeSwitchViewReceiver>
+    private lateinit var transactionReceiver : TransactionReceiver
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -30,7 +34,7 @@ class MainActivity : AppCompatActivity() {
         )
 
         //Create receivers
-        val transactionReceiver = TransactionReceiver(Transaction(mutableSetOf(), mutableListOf()))
+        transactionReceiver = TransactionReceiver(Transaction(mutableSetOf(), mutableListOf()))
         val llTaskTypeReceiver = ViewReceiver(findViewById<LinearLayout>(R.id.ll_task_type))
         val llResultReceiver = ViewReceiver(findViewById<LinearLayout>(R.id.ll_result))
             .apply { this.hide() }
@@ -39,27 +43,32 @@ class MainActivity : AppCompatActivity() {
         val llCompatReceiver = ViewReceiver(findViewById<LinearLayout>(R.id.ll_compat))
         val tvResultReceiver = TextViewReceiver(findViewById(R.id.tv_result))
 
-        val addTypeSwitchViewReceiver = TypeSwitchViewReceiver(
-            ExerciseType.ADDITION,
-            findViewById(R.id.switch_add),
-            findViewById<SwitchCompat>(R.id.tv_add_indicate)
-        ).apply { this.load(sharedPreferences) }
-
-        val subTypeSwitchViewReceiver = TypeSwitchViewReceiver(
-            ExerciseType.SUBTRACTION,
-            findViewById(R.id.switch_sub),
-            findViewById<SwitchCompat>(R.id.tv_sub_indicate)
-        ).apply { this.load(sharedPreferences) }
-        val multiTypeSwitchViewReceiver = TypeSwitchViewReceiver(
-            ExerciseType.MULTIPLICATION,
-            findViewById(R.id.switch_multi),
-            findViewById(R.id.tv_multi_indicate)
-        ).apply { this.load(sharedPreferences) }
-        val divTypeSwitchViewReceiver = TypeSwitchViewReceiver(
-            ExerciseType.DIVISION,
-            findViewById(R.id.switch_divide),
-            findViewById(R.id.tv_divide_indicate)
-        ).apply { this.load(sharedPreferences) }
+        sReceiverList = listOf<TypeSwitchViewReceiver>(
+            TypeSwitchViewReceiver(
+                ExerciseType.ADDITION,
+                findViewById(R.id.switch_add),
+                findViewById<SwitchCompat>(R.id.tv_add_indicate),
+                sharedPreferences
+            ),
+            TypeSwitchViewReceiver(
+                ExerciseType.SUBTRACTION,
+                findViewById(R.id.switch_sub),
+                findViewById<SwitchCompat>(R.id.tv_sub_indicate),
+                sharedPreferences
+            ),
+            TypeSwitchViewReceiver(
+                ExerciseType.MULTIPLICATION,
+                findViewById(R.id.switch_multi),
+                findViewById(R.id.tv_multi_indicate),
+                sharedPreferences
+            ),
+            TypeSwitchViewReceiver(
+                ExerciseType.DIVISION,
+                findViewById(R.id.switch_divide),
+                findViewById(R.id.tv_divide_indicate),
+                sharedPreferences
+            )
+        )
 
         //Invokers and commands
         //Activity Launcher Invoker/Receiver
@@ -80,16 +89,8 @@ class MainActivity : AppCompatActivity() {
             activityLauncher,
             transactionReceiver.transaction
         )
-
         //SwitchCompat Invoker
-        listOf(
-            addTypeSwitchViewReceiver,
-            subTypeSwitchViewReceiver,
-            multiTypeSwitchViewReceiver,
-            divTypeSwitchViewReceiver
-        )
-            .forEach {
-                if (it.switchCompat.isChecked) transactionReceiver.apply { this.write( it.exerciseType.name) }
+        sReceiverList.forEach {
                 SwitchCompatInvoker(
                     it.switchCompat,
                     listOf(
@@ -99,14 +100,9 @@ class MainActivity : AppCompatActivity() {
                     listOf(
                         VisibilityCommand(TextViewReceiver(it.textView), false),
                         CutCommand(transactionReceiver, it.exerciseType.name)
-                    ),
-                    listOf(
-                        SaveCommand(it, sharedPreferences)
                     )
                 )
             }
-
-
         //Skip button
         ButtonInvoker(
             findViewById(R.id.btn_skip),
@@ -132,6 +128,20 @@ class MainActivity : AppCompatActivity() {
             )
         )
     }
+
+    override fun onStart() {
+        super.onStart()
+        sReceiverList.forEach {
+            LoadCommand(it).execute()
+            Log.d("MAC", it.switchCompatStore.isChecked.toString())
+            if (it.switchCompat.isChecked) transactionReceiver.apply { this.write( it.exerciseType.name) }}
+    }
+
+    override fun onStop() {
+        super.onStop()
+        sReceiverList.forEach { SaveCommand(it).execute()
+            Log.d("MAC", it.switchCompatStore.isChecked.toString())}
+    }
 }
 
 
@@ -144,7 +154,6 @@ class QuizActivityContract : ActivityResultContract<Transaction, Transaction?>()
     override fun parseResult(resultCode: Int, intent: Intent?): Transaction? = when {
         resultCode == Activity.RESULT_OK && intent != null
         -> extractTransaction(intent)
-
         else -> null
     }
 }
