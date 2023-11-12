@@ -16,7 +16,6 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.appcompat.widget.SwitchCompat
 import kotlinx.parcelize.Parcelize
-import org.apache.commons.lang3.StringUtils
 import java.io.Serializable
 
 class MainActivity : AppCompatActivity() {
@@ -37,6 +36,8 @@ class MainActivity : AppCompatActivity() {
         transactionReceiver = TransactionReceiver(Transaction(mutableSetOf(), mutableListOf()))
         val llTaskTypeReceiver = ViewReceiver(findViewById<LinearLayout>(R.id.ll_task_type))
         val llResultReceiver = ViewReceiver(findViewById<LinearLayout>(R.id.ll_result))
+            .apply { this.hide() }
+        val btnSkipReceiver = TextViewReceiver(findViewById<Button>(R.id.btn_skip))
             .apply { this.hide() }
         val btnStartReceiver = TextViewReceiver(findViewById<Button>(R.id.btn_start))
         val tvTaskTypeReceiver = TextViewReceiver(findViewById<TextView>(R.id.tv_task_type))
@@ -81,7 +82,8 @@ class MainActivity : AppCompatActivity() {
                     VisibilityCommand(llResultReceiver),
                     WriteCommand(tvTaskTypeReceiver, getString(R.string.result_label)),
                     VisibilityCommand(llCompatReceiver, false),
-                    PasteCommand(tvResultReceiver, clipboard)
+                    PasteCommand(tvResultReceiver, clipboard),
+                    VisibilityCommand(btnSkipReceiver)
                 )
             ).apply { this.commandsBefore.add(CopyCommand(this, clipboard)) })
 
@@ -112,7 +114,8 @@ class MainActivity : AppCompatActivity() {
                 VisibilityCommand(llTaskTypeReceiver),
                 VisibilityCommand(llResultReceiver, false),
                 VisibilityCommand(llCompatReceiver),
-                WriteCommand(tvTaskTypeReceiver, getString(R.string.select_tasks_type))
+                WriteCommand(tvTaskTypeReceiver, getString(R.string.select_tasks_type)),
+                VisibilityCommand(btnSkipReceiver,false)
             )
         )
         //Start button

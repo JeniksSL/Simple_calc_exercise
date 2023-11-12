@@ -111,9 +111,10 @@ class ButtonListener(
 
 class TaskCreator(private val types :Set<ExerciseType>) {
     private val maxValue:Int = 100
-    private val minValue:Int = 10
+    private val minValue:Int = 20
     private val maxDelta:Int = 7
     private val minDelta:Int = 1
+    private val maxDeltaDivMulti = 2
     private val symbolIs = " = "
 
 
@@ -129,7 +130,7 @@ class TaskCreator(private val types :Set<ExerciseType>) {
             ExerciseType.DIVISION ->generateDiv()
         }
     }
-    private fun generateRandomDelta():Int{
+    private fun generateRandomDelta(maxDelta:Int):Int{
         return if (Random.nextBoolean()) Random.nextInt(minDelta, maxDelta)
         else -Random.nextInt(minDelta, maxDelta)
     }
@@ -138,9 +139,9 @@ class TaskCreator(private val types :Set<ExerciseType>) {
         val res = Random.nextInt(minValue, maxValue)
         val s1 = res - Random.nextInt(minValue-1, res)
         val s2 = res - s1;
-        val lie1 = res + generateRandomDelta()
-        var lie2 = res + generateRandomDelta()
-        while (lie2 == lie1) lie2 = res + generateRandomDelta()
+        val lie1 = res + generateRandomDelta(maxDelta)
+        var lie2 = res + generateRandomDelta(maxDelta)
+        while (lie2 == lie1) lie2 = res + generateRandomDelta(maxDelta)
         val list = listOf(res, lie1, lie2).shuffled()
         return Exercise(
             s1.toString().plus(ExerciseType.ADDITION.s).plus(s2.toString()).plus(symbolIs),
@@ -152,9 +153,9 @@ class TaskCreator(private val types :Set<ExerciseType>) {
         val sum = Random.nextInt(minValue, maxValue)
         val sub = sum - Random.nextInt(minValue-1, sum)
         val res = sum - sub;
-        val lie1 = res +generateRandomDelta()
-        var lie2 = res +generateRandomDelta()
-        while (lie2 == lie1) lie2 = res +generateRandomDelta()
+        val lie1 = res +generateRandomDelta(maxDelta)
+        var lie2 = res +generateRandomDelta(maxDelta)
+        while (lie2 == lie1) lie2 = res +generateRandomDelta(maxDelta)
         val list = listOf(res, lie1, lie2).shuffled()
         return Exercise(
             sum.toString().plus(ExerciseType.SUBTRACTION.s).plus(sub.toString()).plus(symbolIs),
@@ -167,9 +168,9 @@ class TaskCreator(private val types :Set<ExerciseType>) {
         val m1 = Random.nextInt(1, minValue)
         val m2 = res/m1
         res = m1*m2;
-        val lie1 = res +generateRandomDelta()
-        var lie2 = res +generateRandomDelta()
-        while (lie2 == lie1) lie2 = res +generateRandomDelta()
+        val lie1 = res +generateRandomDelta(maxDeltaDivMulti)
+        var lie2 = res +generateRandomDelta(maxDeltaDivMulti)
+        while (lie2 == lie1) lie2 = res +generateRandomDelta(maxDeltaDivMulti)
         val list = listOf(res, lie1, lie2).shuffled()
         return Exercise(
             m1.toString().plus(ExerciseType.MULTIPLICATION.s).plus(m2.toString()).plus(symbolIs),
@@ -183,9 +184,9 @@ class TaskCreator(private val types :Set<ExerciseType>) {
         val d1 = Random.nextInt(1, minValue)
         val res = div/d1
         div = res*d1;
-        val lie1 = res +generateRandomDelta()
-        var lie2 = res +generateRandomDelta()
-        while (lie2 == lie1) lie2 = res +generateRandomDelta()
+        val lie1 = res +generateRandomDelta(maxDeltaDivMulti)
+        var lie2 = res +generateRandomDelta(maxDeltaDivMulti)
+        while (lie2 == lie1) lie2 = res +generateRandomDelta(maxDeltaDivMulti)
         val list = listOf(res, lie1, lie2).shuffled()
         return Exercise(
             div.toString().plus(ExerciseType.DIVISION.s).plus(d1.toString()).plus(symbolIs),

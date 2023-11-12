@@ -2,8 +2,8 @@
     <string name="app_name">My Application</string>
     <string name="welcome">Welcome to the Calc quiz</string>
     <string name="switch_sum">Addition</string>
-    <string name="off">OFF</string>
-    <string name="on">ON</string>
+    <string name="off">X</string>
+    <string name="on">V</string>
     <string name="select_tasks_type">Select tasks type</string>
     <string name="please_chose_the_correct_option">Please chose the correct option</string>
     <string name="result_label">Your results</string>

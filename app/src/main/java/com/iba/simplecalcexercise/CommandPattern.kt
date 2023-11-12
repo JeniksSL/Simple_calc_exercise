@@ -31,7 +31,6 @@ interface Receiver {
     fun write(text: String) {}
     fun load() {}
     fun save() {}
-    fun copyFromIndex(clipboard: Clipboard, index:Int) {}
     fun copy(clipboard: Clipboard) {
     }
     fun paste(clipboard: Clipboard) {
